@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../../context/useTheme';
+import { api } from '../../lib/api';
 
 const mobileNavItems = [
   { to: '/', label: 'Dashboard', end: true },
@@ -9,44 +10,88 @@ const mobileNavItems = [
   { to: '/about', label: 'About Us' },
 ];
 
+type BackendStatus = 'checking' | 'online' | 'offline';
+
 export function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
   const { theme, toggleTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [status, setStatus] = useState<BackendStatus>('checking');
+
+  // Live backend health - polled, not hardcoded.
+  useEffect(() => {
+    let active = true;
+    const check = () =>
+      api
+        .health()
+        .then(() => active && setStatus('online'))
+        .catch(() => active && setStatus('offline'));
+    check();
+    const interval = setInterval(check, 30_000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
-    <header className="sticky top-0 z-30 h-16 flex items-center justify-between gap-4 px-4 lg:px-8 border-b border-[var(--border-subtle)] bg-[var(--bg-void)]/85 backdrop-blur-md">
+    <header className="sticky top-0 z-30 h-16 flex items-center justify-between gap-3 px-4 lg:px-8 bg-transparent">
       <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={() => setMobileOpen((v) => !v)}
-          className="lg:hidden shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
+          className="lg:hidden shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-[var(--shadow-violet)]"
+          style={{ background: 'var(--gradient-primary)' }}
           aria-label="Toggle navigation"
+          aria-expanded={mobileOpen}
         >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
           </svg>
         </button>
         <div className="min-w-0">
-          <h1 className="font-display font-semibold text-lg text-[var(--text-primary)] truncate">{title}</h1>
-          {subtitle && <p className="text-xs text-[var(--text-muted)] truncate">{subtitle}</p>}
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-muted)] hidden sm:block">
+            NerdForge AI
+          </div>
+          <h1 className="font-display font-semibold text-lg text-[var(--text-primary)] truncate leading-tight">
+            {title}
+          </h1>
+          {subtitle && <p className="text-xs text-[var(--text-muted)] truncate hidden md:block">{subtitle}</p>}
         </div>
       </div>
 
-      <button
-        onClick={toggleTheme}
-        aria-label="Toggle color theme"
-        className="relative shrink-0 w-16 h-9 rounded-full bg-[var(--bg-surface-raised)] border border-[var(--border-strong)] flex items-center px-1 transition-colors"
-      >
+      <div className="flex items-center gap-2.5 shrink-0">
+        {/* Backend status pill */}
         <span
-          className={`absolute w-7 h-7 rounded-full bg-gradient-to-br from-cyan-400 to-violet-500 shadow-md transition-transform duration-300 flex items-center justify-center text-white ${
-            theme === 'dark' ? 'translate-x-[28px]' : 'translate-x-0'
+          className={`hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border ${
+            status === 'online'
+              ? 'bg-[var(--accent-green-soft)] text-[var(--accent-green)] border-transparent'
+              : status === 'offline'
+                ? 'bg-rose-500/10 text-rose-500 border-transparent'
+                : 'bg-[var(--bg-hover)] text-[var(--text-muted)] border-transparent'
           }`}
+          title={status === 'offline' ? 'Start the backend: uvicorn app.main:app --reload' : undefined}
         >
-          {theme === 'dark' ? <MoonIcon /> : <SunIcon />}
+          <span className={`w-1.5 h-1.5 rounded-full bg-current ${status !== 'offline' ? 'animate-pulse-slow' : ''}`} />
+          {status === 'online' ? 'Backend online' : status === 'offline' ? 'Backend offline' : 'Checking…'}
         </span>
-      </button>
+
+        <button
+          onClick={toggleTheme}
+          aria-label="Toggle color theme"
+          className="relative w-16 h-9 rounded-full bg-[var(--bg-surface)] border border-[var(--border-strong)] flex items-center px-1 transition-colors shadow-[var(--shadow-card)]"
+        >
+          <span
+            className={`absolute w-7 h-7 rounded-full shadow-md transition-transform duration-300 flex items-center justify-center text-white ${
+              theme === 'dark' ? 'translate-x-[28px]' : 'translate-x-0'
+            }`}
+            style={{ background: 'var(--gradient-primary)' }}
+          >
+            {theme === 'dark' ? <MoonIcon /> : <SunIcon />}
+          </span>
+        </button>
+      </div>
 
       {mobileOpen && (
-        <div className="lg:hidden absolute top-16 left-0 right-0 bg-[var(--bg-surface)] border-b border-[var(--border-subtle)] shadow-[var(--shadow-elevated)] flex flex-col p-3 gap-1">
+        <div className="lg:hidden absolute top-16 left-3 right-3 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] shadow-[var(--shadow-elevated)] flex flex-col p-3 gap-1 z-40">
           {mobileNavItems.map(({ to, label, end }) => (
             <NavLink
               key={to}
@@ -56,10 +101,11 @@ export function Topbar({ title, subtitle }: { title: string; subtitle?: string }
               className={({ isActive }) =>
                 `px-4 py-3 rounded-xl text-sm font-medium ${
                   isActive
-                    ? 'bg-[var(--accent-cyan-soft)] text-[var(--accent-cyan)]'
+                    ? 'text-white shadow-[var(--shadow-violet)]'
                     : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
                 }`
               }
+              style={({ isActive }) => (isActive ? { background: 'var(--gradient-primary)' } : undefined)}
             >
               {label}
             </NavLink>

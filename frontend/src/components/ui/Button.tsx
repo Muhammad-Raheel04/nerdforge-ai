@@ -11,19 +11,19 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    'bg-gradient-to-r from-cyan-500 to-violet-500 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)_inset] hover:shadow-[0_0_24px_-4px_rgba(34,211,238,0.6)] hover:brightness-110 active:brightness-95',
+    '[background:var(--gradient-primary)] text-white shadow-[var(--shadow-violet)] hover:brightness-110 hover:-translate-y-px active:translate-y-0 active:brightness-95',
   secondary:
-    'bg-[var(--bg-surface-raised)] text-[var(--text-primary)] border border-[var(--border-strong)] hover:border-[var(--accent-cyan)] hover:bg-[var(--bg-hover)]',
+    'bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-strong)] shadow-[var(--shadow-card)] hover:border-[var(--accent-violet)] hover:bg-[var(--bg-hover)]',
   ghost:
     'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]',
   danger:
-    'bg-[var(--bg-surface-raised)] text-rose-400 border border-rose-500/30 hover:bg-rose-500/10 hover:border-rose-500/60',
+    'bg-[var(--bg-surface)] text-rose-500 border border-rose-500/30 hover:bg-rose-500/10 hover:border-rose-500/60',
 };
 
 const sizeClasses: Record<Size, string> = {
-  sm: 'text-xs px-3 py-1.5 gap-1.5 rounded-lg',
-  md: 'text-sm px-4 py-2.5 gap-2 rounded-xl',
-  lg: 'text-base px-6 py-3.5 gap-2.5 rounded-xl',
+  sm: 'text-xs px-3.5 py-2 gap-1.5 rounded-xl',
+  md: 'text-sm px-5 py-2.5 gap-2 rounded-2xl',
+  lg: 'text-base px-7 py-3.5 gap-2.5 rounded-2xl',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(

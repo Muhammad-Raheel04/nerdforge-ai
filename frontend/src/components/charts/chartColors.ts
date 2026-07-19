@@ -8,7 +8,9 @@ export const severityColors: Record<string, string> = {
 };
 
 export const chartPalette = {
-  cyan: '#22d3ee',
-  violet: '#8b5cf6',
-  muted: '#6d7690',
+  violet: '#6d5ce6',
+  violetLight: '#9384f2',
+  pink: '#f0699e',
+  green: '#3ecf8e',
+  muted: '#8f90ab',
 };

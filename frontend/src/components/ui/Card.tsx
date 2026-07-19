@@ -16,8 +16,8 @@ const paddingClasses = {
 export function Card({ children, hoverable, padding = 'md', className = '', ...props }: CardProps) {
   return (
     <div
-      className={`bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-2xl shadow-[var(--shadow-card)] ${
-        hoverable ? 'transition-all duration-200 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-elevated)]' : ''
+      className={`bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-3xl shadow-[var(--shadow-card)] ${
+        hoverable ? 'transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-elevated)]' : ''
       } ${paddingClasses[padding]} ${className}`}
       {...props}
     >

@@ -22,9 +22,9 @@ export function AttackChainGraph({ stages }: { stages: AttackStage[] }) {
       <svg width={width} height={height} className="min-w-full">
         <defs>
           <linearGradient id="chain-line" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="var(--accent-cyan)" stopOpacity="0.15" />
-            <stop offset="50%" stopColor="var(--accent-violet)" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="var(--accent-cyan)" stopOpacity="0.15" />
+            <stop offset="0%" stopColor="var(--accent-violet)" stopOpacity="0.15" />
+            <stop offset="50%" stopColor="var(--accent-violet)" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="var(--accent-pink)" stopOpacity="0.35" />
           </linearGradient>
         </defs>
 
@@ -34,7 +34,7 @@ export function AttackChainGraph({ stages }: { stages: AttackStage[] }) {
         {/* Traveling pulse along the chain */}
         <motion.circle
           r={4}
-          fill="var(--accent-cyan)"
+          fill="var(--accent-pink)"
           initial={{ cx: positions[0], cy: y, opacity: 0 }}
           animate={{
             cx: positions,
@@ -42,7 +42,7 @@ export function AttackChainGraph({ stages }: { stages: AttackStage[] }) {
             opacity: [0, 1, 1, 0],
           }}
           transition={{ duration: nodeCount * 1.1, repeat: Infinity, ease: 'easeInOut' }}
-          style={{ filter: 'drop-shadow(0 0 6px var(--accent-cyan))' }}
+          style={{ filter: 'drop-shadow(0 0 6px var(--accent-pink))' }}
         />
 
         {stages.map((stage, i) => (
@@ -85,8 +85,8 @@ export function AttackChainGraph({ stages }: { stages: AttackStage[] }) {
               textAnchor="middle"
               fontSize="10"
               fontFamily="var(--font-mono)"
-              fill="var(--accent-cyan)"
-              opacity={0.8}
+              fill="var(--accent-violet)"
+              opacity={0.9}
             >
               {stage.mitre_technique}
             </text>

@@ -37,7 +37,7 @@ export function AttacksList() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name…"
-              className="w-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl pl-9 pr-3.5 py-2.5 text-sm outline-none focus:border-[var(--accent-cyan)] transition-colors"
+              className="w-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl pl-9 pr-3.5 py-2.5 text-sm outline-none focus:border-[var(--accent-violet)] transition-colors"
             />
           </div>
           <Link to="/generate">
@@ -86,7 +86,7 @@ export function AttacksList() {
                         <span
                           className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${
                             a.status === 'completed'
-                              ? 'bg-emerald-500/10 text-emerald-500'
+                              ? 'bg-[var(--accent-green-soft)] text-[var(--accent-green)]'
                               : 'bg-amber-500/10 text-amber-500'
                           }`}
                         >
@@ -97,7 +97,7 @@ export function AttacksList() {
                         {new Date(a.created_at).toLocaleString()}
                       </td>
                       <td className="px-6 py-3.5 text-right">
-                        <Link to={`/attacks/${a.id}`} className="text-[var(--accent-cyan)] hover:underline font-medium">
+                        <Link to={`/attacks/${a.id}`} className="text-[var(--accent-violet)] hover:underline font-medium">
                           View →
                         </Link>
                       </td>

@@ -3,6 +3,7 @@ import json
 import logging
 import re
 import asyncio
+from datetime import datetime
 from typing import Dict, Any, Optional, List
 from google import genai
 from groq import Groq
@@ -182,6 +183,51 @@ class LLMService:
         hint = schema.get("description")
         return f"<string{': ' + hint if hint else ''}>"
 
+    def _find_json_object(self, text: str) -> Optional[str]:
+        """
+        Locate the first complete top-level JSON object in `text` using a
+        quote-aware brace-depth scan, rather than a naive greedy regex.
+
+        This matters specifically for rule content: YARA rules
+        (`rule Name { ... }`) and some Sigma text contain their own literal
+        '{' and '}' characters inside string values. A naive `\\{.*\\}` regex
+        can misjudge where the *outer* JSON object actually ends. This scan
+        tracks brace depth only *outside* of quoted strings (respecting
+        escaped quotes), so nested braces inside rule_content never confuse
+        the boundary detection.
+
+        Returns None if the braces never balance - which correctly signals
+        a truncated/incomplete response (e.g. cut off by max_tokens) rather
+        than silently matching the wrong span.
+        """
+        start = text.find('{')
+        if start == -1:
+            return None
+
+        depth = 0
+        in_string = False
+        escape = False
+
+        for i in range(start, len(text)):
+            ch = text[i]
+            if in_string:
+                if escape:
+                    escape = False
+                elif ch == '\\':
+                    escape = True
+                elif ch == '"':
+                    in_string = False
+                continue
+            if ch == '"':
+                in_string = True
+            elif ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0:
+                    return text[start:i + 1]
+        return None  # braces never balanced - likely truncated mid-generation
+
     def _extract_json(self, response: str) -> Optional[Dict[str, Any]]:
         """Best-effort extraction + repair of a JSON object from raw model output."""
         text = (response or "").strip()
@@ -191,9 +237,9 @@ class LLMService:
         elif "```" in text:
             text = text.split("```")[1].split("```")[0]
 
-        match = re.search(r'\{.*\}', text, re.DOTALL)
-        if match:
-            text = match.group(0)
+        boundary_match = self._find_json_object(text)
+        if boundary_match:
+            text = boundary_match
         text = text.strip()
 
         if not text:
@@ -216,53 +262,92 @@ class LLMService:
             return json.loads(sanitized, strict=False)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON even after sanitization: {e}")
-            logger.error(f"Response snippet: {text[:500]}")
+            logger.error(f"Full response ({len(text)} chars): {text}")
             return None
 
-    def _matches_schema_shape(self, value: Any, schema: Dict[str, Any]) -> bool:
-        """
-        Validate that a parsed value actually matches the *shape* of the
-        schema, not just that it's syntactically valid JSON.
+    _SCHEMA_MARKER_KEYS = {"type", "properties", "$schema", "items"}
 
-        This catches the failure mode where a model echoes JSON-Schema-draft
-        structure into a field instead of producing real content - e.g.
-        {"rule_name": {"type": "string", "value": "..."}} instead of
-        {"rule_name": "..."}. That's syntactically valid JSON, so a plain
-        json.loads() success would miss it; only checking primitive types
-        against the schema catches it.
+    def _is_schema_echo_fragment(self, value: Any) -> bool:
+        """A dict that looks like a JSON-Schema-draft fragment (e.g.
+        {"type": "string", "value": "..."}) instead of real content - the
+        actual failure mode we need to catch."""
+        return isinstance(value, dict) and bool(set(value.keys()) & self._SCHEMA_MARKER_KEYS)
 
-        Permissive about missing keys (the model may reasonably omit an
-        optional field), strict about keys that ARE present having the
-        wrong type.
-        """
+    def _coerce_scalar(self, value: Any, schema: Dict[str, Any]) -> Any:
+        """Best-effort coercion of a validated-but-loosely-typed scalar into
+        the type the rest of the app expects (e.g. "90" -> 90)."""
         t = schema.get("type")
-
-        if t == "object":
-            if not isinstance(value, dict):
-                return False
-            props = schema.get("properties", {})
-            if props and not (set(props.keys()) & set(value.keys())):
-                # None of the expected fields are present at all - this isn't a
-                # partial instance of our schema (a model reasonably omitting
-                # one optional field), it's an unrelated or empty object (e.g.
-                # {} used as a stub, or a completely different structure).
-                return False
-            for key, sub_schema in props.items():
-                if key in value and not self._matches_schema_shape(value[key], sub_schema):
-                    return False
-            return True
-        if t == "array":
-            if not isinstance(value, list):
-                return False
+        try:
+            if t in ("integer",) and not isinstance(value, bool):
+                return int(float(value)) if not isinstance(value, int) else value
+            if t == "number" and not isinstance(value, bool):
+                return float(value) if not isinstance(value, (int, float)) else value
+            if t == "string" and not isinstance(value, str):
+                return str(value)
+        except (TypeError, ValueError):
+            pass
+        return value
+    def _coerce_to_schema(self, value: Any, schema: Dict[str, Any]) -> Any:
+        """Recursively coerce a validated value's scalars to match schema
+        types (e.g. "90" -> 90), so downstream DB writes get real ints."""
+        t = schema.get("type")
+        if t == "object" and isinstance(value, dict):
+            return {
+                k: (self._coerce_to_schema(v, schema["properties"][k]) if k in schema.get("properties", {}) else v)
+                for k, v in value.items()
+            }
+        if t == "array" and isinstance(value, list):
             item_schema = schema.get("items", {"type": "string"})
-            # Sample-check rather than validating every item, for speed on long lists
-            return all(self._matches_schema_shape(v, item_schema) for v in value[:3])
-        if t in ("integer", "number"):
-            return isinstance(value, (int, float)) and not isinstance(value, bool)
-        if t == "boolean":
-            return isinstance(value, bool)
-        # string (default)
-        return isinstance(value, str)
+            return [self._coerce_to_schema(v, item_schema) for v in value]
+        return self._coerce_scalar(value, schema)
+
+    def _extract_usable(
+        self,
+        parsed: Dict[str, Any],
+        schema: Dict[str, Any],
+        critical_keys: Optional[set] = None,
+    ) -> "tuple[Dict[str, Any], bool]":
+        """
+        Extract whatever's usable from a parsed JSON object, field by field,
+        rather than an all-or-nothing verdict on the whole object.
+
+        `critical_keys` are fields that must be present, non-schema-echoed,
+        and non-trivial (e.g. rule_content) for the result to count as
+        success. Every other field is best-effort: coerced if loosely typed,
+        silently dropped (falling back to the caller's default) if it's a
+        schema-echo fragment or otherwise unusable - never enough on its own
+        to discard an otherwise-good result. This is what actually fixes the
+        recurring failure mode where a cosmetic field like `confidence` or
+        `severity` being slightly malformed threw away perfectly good
+        rule_content.
+        """
+        if not isinstance(parsed, dict):
+            return {}, False
+
+        critical_keys = critical_keys or set()
+        result: Dict[str, Any] = {}
+        ok = True
+
+        for key, sub_schema in schema.get("properties", {}).items():
+            if key not in parsed:
+                if key in critical_keys:
+                    ok = False
+                continue
+
+            raw = parsed[key]
+            if self._is_schema_echo_fragment(raw):
+                if key in critical_keys:
+                    ok = False
+                continue  # cosmetic field: drop it, caller's .get() default applies
+
+            result[key] = self._coerce_to_schema(raw, sub_schema)
+
+        for key in critical_keys:
+            val = result.get(key)
+            if isinstance(val, str) and len(val.strip()) < 10:
+                ok = False
+
+        return result, ok
 
     async def generate_json(
         self,
@@ -271,9 +356,17 @@ class LLMService:
         model: Optional[str] = None,
         temperature: float = 0.3,
         fallback: Optional[Dict[str, Any]] = None,
+        max_tokens: int = 2048,
+        critical_keys: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Generate structured JSON output.
+
+        `critical_keys` (e.g. ["rule_content"]) marks fields that must be
+        genuinely present for the result to count as success; every other
+        field is extracted best-effort and defaults are left to the caller
+        if unusable - so a malformed cosmetic field never discards otherwise
+        good content.
 
         If parsing fails after retrying once, returns `fallback` if provided;
         otherwise raises LLMJSONError so the caller (API layer) can surface a
@@ -297,6 +390,7 @@ the words "type" or "properties" anywhere in your answer):
 
 Output raw JSON only - no markdown code fences, no commentary before or after."""
 
+        critical_set = set(critical_keys or [])
         last_response = ""
         for attempt in range(2):
             json_prompt = base_prompt
@@ -307,23 +401,24 @@ Output raw JSON only - no markdown code fences, no commentary before or after.""
                 )
 
             response = await self.generate(
-                json_prompt, model, temperature, max_tokens=2048, force_json=True
+                json_prompt, model, temperature, max_tokens=max_tokens, force_json=True
             )
             last_response = response
 
             parsed = self._extract_json(response)
-            if parsed is not None and self._matches_schema_shape(parsed, schema):
-                return parsed
-
             if parsed is not None:
+                usable, ok = self._extract_usable(parsed, schema, critical_set)
+                if ok:
+                    return usable
                 logger.error(
-                    f"generate_json attempt {attempt + 1} parsed as valid JSON but didn't "
-                    f"match the expected shape (likely a schema echo): {str(parsed)[:300]}"
+                    f"generate_json attempt {attempt + 1}: critical field(s) "
+                    f"{sorted(critical_set)} missing or unusable. Parsed keys present: "
+                    f"{list(parsed.keys())}"
                 )
             else:
                 logger.error(f"generate_json attempt {attempt + 1} failed to parse")
 
-        logger.error(f"generate_json giving up after retries. Last response: {last_response[:500]}")
+        logger.error(f"generate_json giving up after retries. Last response ({len(last_response)} chars): {last_response}")
 
         if fallback is not None:
             return fallback
@@ -490,7 +585,8 @@ Output raw JSON only - no markdown code fences, no commentary before or after.""
         """
 
         return await self.generate_json(
-            prompt, schema, temperature=0.3, fallback=self._get_fallback_scenario()
+            prompt, schema, temperature=0.3, fallback=self._get_fallback_scenario(),
+            critical_keys=["attack_stages"],
         )
 
     async def extract_iocs(
@@ -540,7 +636,7 @@ Output raw JSON only - no markdown code fences, no commentary before or after.""
         # No fallback here: an empty/wrong IOC list silently looks like a
         # legitimate "no IOCs found" result, which is misleading. Better to
         # raise and let the API return a clear error so the user can retry.
-        result = await self.generate_json(prompt, schema, temperature=0.2)
+        result = await self.generate_json(prompt, schema, temperature=0.2, critical_keys=["iocs"])
         return result.get("iocs", [])
 
     async def generate_detection_rule(
@@ -561,27 +657,100 @@ Output raw JSON only - no markdown code fences, no commentary before or after.""
             }
         }
 
+        today = datetime.now().strftime("%Y-%m-%d")
+        commands = attack_stage.get("commands", []) or ["(no example commands provided)"]
+        tools = attack_stage.get("tools", []) or []
+        mitre_technique = attack_stage.get("mitre_technique", "T0000")
+        mitre_tactic = attack_stage.get("mitre_tactic", "")
+
+        if rule_format == "sigma":
+            syntax_guide = f"""
+Follow this exact Sigma structure (this is real, valid Sigma syntax - match it closely):
+
+title: <short descriptive title, Title Case>
+id: <a realistic random UUID>
+status: experimental
+description: <one sentence, what this detects>
+references:
+    - https://attack.mitre.org/techniques/{mitre_technique}/
+author: NerdForge AI
+date: {today}
+tags:
+    - attack.{mitre_tactic.lower() if mitre_tactic else 'unknown'}
+    - attack.{mitre_technique.lower()}
+logsource:
+    category: <the correct Sigma category for this behavior, e.g. process_creation, network_connection, registry_event, file_event>
+    product: windows
+detection:
+    selection:
+        <field>: <value>
+        <field2>: <value2>
+    condition: selection
+falsepositives:
+    - <one realistic, specific false-positive scenario - not "Unknown">
+level: <informational|low|medium|high|critical>
+
+The "selection" fields MUST be built from the actual commands/tools below -
+use real Sigma field names (CommandLine, Image, TargetFilename, DestinationIp,
+RegistryKey, etc. as appropriate to the logsource category), not placeholders.
+"""
+        else:
+            syntax_guide = f"""
+Follow this exact YARA structure (this is real, valid YARA syntax - match it closely):
+
+rule <Rule_Name_In_PascalCase_With_Underscores>
+{{
+    meta:
+        author = "NerdForge AI"
+        date = "{today}"
+        description = "<one sentence, what this detects>"
+        reference = "https://attack.mitre.org/techniques/{mitre_technique}/"
+        tags = "<comma-separated tags relevant to this stage>"
+
+    strings:
+        $string1 = "<a concrete string pulled directly from the commands/tools below>" nocase
+        $string2 = "<another concrete, specific indicator - a real flag, path, or argument>" nocase
+
+    condition:
+        <a realistic condition such as "any of them", "all of them", or "2 of them">
+}}
+
+The $string values MUST be concrete substrings derived from the actual
+commands/tools below (executable names, flags, URLs, file paths) - not
+generic placeholders like "malware.exe" unless that literal string actually
+appears in the commands.
+"""
+
         prompt = f"""
-        Write a {rule_format.upper()} detection rule for this attack stage.
+        Write a {rule_format.upper()} detection rule for this specific attack stage.
+        You are an experienced detection engineer - the rule must be technically
+        accurate and directly grounded in the observed activity below, not generic.
 
         Stage: {attack_stage.get('stage', 'Unknown')}
         Technique: {attack_stage.get('technique', 'Unknown')}
-        MITRE Technique ID: {attack_stage.get('mitre_technique', 'Unknown')}
+        MITRE Technique ID: {mitre_technique}
+        MITRE Tactic: {mitre_tactic}
         Description: {attack_stage.get('description', '')}
-        Example commands observed: {json.dumps(attack_stage.get('commands', []))}
+        Tools observed: {json.dumps(tools)}
+        Commands observed (use these verbatim as the basis for your detection logic): {json.dumps(commands)}
 
-        The rule_content field must contain a complete, syntactically valid
-        {'Sigma rule in YAML' if rule_format == 'sigma' else 'YARA rule'} that
-        would realistically detect this behavior. Within rule_content, escape
-        backslashes and newlines properly so the surrounding JSON stays valid.
+        {syntax_guide}
+
+        Do not use placeholder values like "Your Name", "your_hash_value", or
+        generic dates like 2023-01-01 - use the author and date given above.
+        Put the complete rule text (matching the structure above exactly) into
+        the rule_content field. Within rule_content, escape backslashes and
+        newlines properly so the surrounding JSON stays valid.
         """
 
         # No fallback: an empty rule_content silently rendered as a "successful"
         # card is exactly the bug we're fixing. Raise so the batch endpoint can
         # surface a clear error instead.
-        result = await self.generate_json(prompt, schema, temperature=0.2)
-        result["mitre_technique"] = attack_stage.get("mitre_technique", "")
-        result["mitre_tactic"] = attack_stage.get("mitre_tactic", "")
+        result = await self.generate_json(
+            prompt, schema, temperature=0.15, max_tokens=3000, critical_keys=["rule_content"]
+        )
+        result["mitre_technique"] = mitre_technique
+        result["mitre_tactic"] = mitre_tactic
         result["rule_format"] = rule_format
         return result
 
@@ -633,7 +802,9 @@ Output raw JSON only - no markdown code fences, no commentary before or after.""
         # No fallback: a report with an empty summary but a real-looking title
         # is worse than no report at all. Raise so the frontend shows a clear
         # error and the user can regenerate.
-        return await self.generate_json(prompt, schema, temperature=0.3)
+        return await self.generate_json(
+            prompt, schema, temperature=0.3, max_tokens=3000, critical_keys=["executive_summary"]
+        )
 
     async def analyze_events(
         self,
@@ -696,5 +867,6 @@ Output raw JSON only - no markdown code fences, no commentary before or after.""
         # attack generation degrades gracefully instead of 500ing the whole
         # request, while being honest that analysis is unavailable.
         return await self.generate_json(
-            prompt, schema, temperature=0.3, fallback=self._get_fallback_analysis()
+            prompt, schema, temperature=0.3, fallback=self._get_fallback_analysis(),
+            critical_keys=["summary"],
         )

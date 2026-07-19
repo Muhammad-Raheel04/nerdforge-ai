@@ -7,51 +7,47 @@ const navItems = [
   { to: '/about', label: 'About Us', icon: UsersIcon },
 ];
 
+/**
+ * Floating violet pill rail (icon-only), matching the reference dashboard's
+ * sidebar. Active item pops out as a white squircle with a violet icon.
+ * Labels appear as tooltips on hover/focus.
+ */
 export function Sidebar() {
   return (
-    <aside className="hidden lg:flex flex-col w-64 shrink-0 h-screen sticky top-0 border-r border-[var(--border-subtle)] bg-[var(--bg-surface)]">
-      <div className="flex items-center gap-2.5 px-6 h-16 border-b border-[var(--border-subtle)]">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center shrink-0">
-          <ShieldIcon />
-        </div>
-        <div className="leading-tight">
-          <div className="font-display font-semibold text-sm text-[var(--text-primary)]">NerdForge AI</div>
-          <div className="text-[10px] text-[var(--text-muted)] tracking-wide uppercase">SOC Console</div>
-        </div>
-      </div>
+    <aside className="hidden lg:flex flex-col items-center w-[76px] shrink-0 my-5 ml-5 py-5 rounded-[26px] shadow-[var(--shadow-violet)]" style={{ background: 'var(--gradient-primary)' }}>
+      <NavLink to="/" className="w-11 h-11 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center mb-7 hover:bg-white/25 transition-colors" aria-label="NerdForge AI home">
+        <ShieldIcon />
+      </NavLink>
 
-      <nav className="flex-1 px-3 py-5 flex flex-col gap-1">
+      <nav className="flex-1 flex flex-col items-center gap-3" aria-label="Main navigation">
         {navItems.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}
             end={end}
+            aria-label={label}
             className={({ isActive }) =>
-              `group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              `group relative flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-200 ${
                 isActive
-                  ? 'bg-gradient-to-r from-[var(--accent-cyan-soft)] to-[var(--accent-violet-soft)] text-[var(--text-primary)]'
-                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
+                  ? 'bg-white text-[var(--color-violet-brand)] shadow-lg scale-105'
+                  : 'text-white/75 hover:bg-white/15 hover:text-white'
               }`
             }
           >
-            {({ isActive }) => (
-              <>
-                <Icon className={`w-[18px] h-[18px] shrink-0 ${isActive ? 'text-[var(--accent-cyan)]' : ''}`} />
-                {label}
-              </>
-            )}
+            <Icon className="w-[22px] h-[22px]" />
+            {/* Tooltip */}
+            <span className="absolute left-full ml-3 px-2.5 py-1.5 rounded-lg bg-[var(--text-primary)] text-[var(--bg-surface)] text-xs font-medium whitespace-nowrap opacity-0 -translate-x-1 pointer-events-none transition-all duration-150 group-hover:opacity-100 group-hover:translate-x-0 group-focus-visible:opacity-100 group-focus-visible:translate-x-0 z-50">
+              {label}
+            </span>
           </NavLink>
         ))}
       </nav>
 
-      <div className="px-3 py-4 border-t border-[var(--border-subtle)]">
-        <div className="px-3 py-3 rounded-xl bg-[var(--bg-hover)] text-xs text-[var(--text-muted)]">
-          <div className="flex items-center gap-1.5 mb-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-slow" />
-            <span className="font-medium text-[var(--text-secondary)]">Backend connected</span>
-          </div>
-          DYLP Hackathon 2026
-        </div>
+      <div className="mt-auto pt-4 flex flex-col items-center gap-1.5" title="DYLP Hackathon 2026">
+        <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse-slow" />
+        <span className="text-[9px] font-semibold tracking-widest text-white/60 uppercase [writing-mode:vertical-lr] rotate-180">
+          DYLP '26
+        </span>
       </div>
     </aside>
   );
@@ -59,7 +55,7 @@ export function Sidebar() {
 
 function ShieldIcon() {
   return (
-    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
     </svg>
   );

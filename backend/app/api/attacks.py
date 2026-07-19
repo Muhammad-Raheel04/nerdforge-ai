@@ -349,11 +349,15 @@ async def generate_detections(
         raise HTTPException(status_code=400, detail="This attack has no stages to generate rules from")
 
     stored = []
+    errors = []
     for stage in stages:
         try:
             rule = await llm_service.generate_detection_rule(stage, rule_format=request.rule_format)
         except Exception as e:
-            raise HTTPException(status_code=502, detail=f"Detection rule generation failed: {e}")
+            # Don't let one bad stage discard rules that succeeded for
+            # other stages - collect the error and keep going.
+            errors.append(f"{stage.get('stage', 'stage')}: {e}")
+            continue
 
         db_detection = Detection(
             id=str(uuid.uuid4()),
@@ -369,6 +373,13 @@ async def generate_detections(
         )
         db.add(db_detection)
         stored.append(db_detection)
+
+    if not stored:
+        db.rollback()
+        detail = "Detection rule generation failed for every stage."
+        if errors:
+            detail += " " + " | ".join(errors[:3])
+        raise HTTPException(status_code=502, detail=detail)
 
     db.commit()
 

@@ -129,7 +129,7 @@ function OverviewTab({ attack }: { attack: AttackDetailType }) {
               <ul className="flex flex-col gap-2">
                 {actions.map((a, i) => (
                   <li key={i} className="flex items-start gap-2.5 text-sm text-[var(--text-secondary)]">
-                    <span className="w-5 h-5 rounded-md bg-[var(--accent-cyan-soft)] text-[var(--accent-cyan)] flex items-center justify-center text-[11px] font-semibold shrink-0 mt-0.5">
+                    <span className="w-5 h-5 rounded-md bg-[var(--accent-violet-soft)] text-[var(--accent-violet)] flex items-center justify-center text-[11px] font-semibold shrink-0 mt-0.5">
                       {i + 1}
                     </span>
                     {a}
@@ -173,11 +173,11 @@ function EventsTab({ attack, events }: { attack: AttackDetailType; events: Retur
             {(attack.timeline || []).map((t, i) => (
               <div key={i} className="flex gap-4">
                 <div className="flex flex-col items-center">
-                  <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-cyan-400 to-violet-500 shrink-0 mt-1" />
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0 mt-1" style={{ background: 'var(--gradient-primary)' }} />
                   {i < attack.timeline.length - 1 && <span className="w-px flex-1 bg-[var(--border-subtle)] mt-1" />}
                 </div>
                 <div className="pb-1">
-                  <div className="text-xs font-mono text-[var(--accent-cyan)]">{t.time}</div>
+                  <div className="text-xs font-mono text-[var(--accent-pink)]">{t.time}</div>
                   <div className="text-sm font-medium text-[var(--text-primary)] mt-0.5">{t.action}</div>
                   <div className="text-sm text-[var(--text-muted)] mt-0.5">{t.description}</div>
                 </div>
@@ -364,7 +364,9 @@ function DetectionsTab({ attackId }: { attackId: string }) {
                 key={f}
                 onClick={() => setFormat(f)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-md capitalize transition-colors ${
-                  format === f ? 'bg-[var(--accent-cyan-soft)] text-[var(--accent-cyan)]' : 'text-[var(--text-muted)]'
+                  format === f
+                    ? 'text-white shadow-[var(--shadow-violet)] [background:var(--gradient-primary)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 {f}

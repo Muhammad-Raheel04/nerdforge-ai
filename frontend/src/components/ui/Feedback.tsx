@@ -6,7 +6,7 @@ export function Spinner({ label }: { label?: string }) {
     <div className="flex flex-col items-center justify-center gap-3 py-12">
       <div className="relative w-10 h-10">
         <div className="absolute inset-0 rounded-full border-2 border-[var(--border-subtle)]" />
-        <div className="absolute inset-0 rounded-full border-2 border-t-[var(--accent-cyan)] border-transparent animate-spin" />
+        <div className="absolute inset-0 rounded-full border-2 border-t-[var(--accent-violet)] border-transparent animate-spin" />
       </div>
       {label && <p className="text-sm text-[var(--text-muted)]">{label}</p>}
     </div>
@@ -63,29 +63,37 @@ export function Tabs({
   onChange: (id: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-1 border-b border-[var(--border-subtle)] overflow-x-auto">
+    <div className="inline-flex items-center gap-1 p-1.5 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)] overflow-x-auto max-w-full">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
-          className={`relative px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
+          className={`relative px-4 py-2 text-sm font-medium whitespace-nowrap rounded-xl transition-colors ${
             active === tab.id
-              ? 'text-[var(--text-primary)]'
-              : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+              ? 'text-white'
+              : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
           }`}
         >
-          <span className="flex items-center gap-2">
-            {tab.label}
-            {typeof tab.count === 'number' && (
-              <span className="text-xs px-1.5 py-0.5 rounded-full bg-[var(--bg-hover)]">{tab.count}</span>
-            )}
-          </span>
           {active === tab.id && (
             <motion.div
-              layoutId="tab-underline"
-              className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-500 to-violet-500 rounded-full"
+              layoutId="tab-pill"
+              className="absolute inset-0 rounded-xl shadow-[var(--shadow-violet)]"
+              style={{ background: 'var(--gradient-primary)' }}
+              transition={{ type: 'spring', stiffness: 400, damping: 32 }}
             />
           )}
+          <span className="relative flex items-center gap-2">
+            {tab.label}
+            {typeof tab.count === 'number' && (
+              <span
+                className={`text-xs px-1.5 py-0.5 rounded-full ${
+                  active === tab.id ? 'bg-white/20' : 'bg-[var(--bg-hover)]'
+                }`}
+              >
+                {tab.count}
+              </span>
+            )}
+          </span>
         </button>
       ))}
     </div>

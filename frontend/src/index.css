@@ -4,16 +4,17 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ---------------------------------------------------------------------- */
-/* Design tokens                                                          */
+/* Design tokens - "soft console" direction                               */
+/* Periwinkle canvas, frosted frame, violet primary, pink accent.         */
 /* ---------------------------------------------------------------------- */
 @theme {
-  --font-display: 'Space Grotesk', system-ui, sans-serif;
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'Sora', system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
   /* Brand */
-  --color-cyan-signal: #22d3ee;
-  --color-violet-signal: #8b5cf6;
+  --color-violet-brand: #6d5ce6;
+  --color-pink-brand: #f0699e;
 
   /* Severity ramp - used consistently for anything security-graded */
   --color-severity-low: #34d399;
@@ -22,63 +23,110 @@
   --color-severity-critical: #f43f5e;
 
   --animate-pulse-slow: pulse-slow 3s ease-in-out infinite;
-  --animate-node-glow: node-glow 2.4s ease-in-out infinite;
-  --animate-flow: flow 3s linear infinite;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-orbit: orbit 36s linear infinite;
+  --animate-orbit-reverse: orbit-reverse 36s linear infinite;
+  --animate-twinkle: twinkle 3.2s ease-in-out infinite;
 }
 
 @keyframes pulse-slow {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }
 }
-@keyframes node-glow {
-  0%, 100% { filter: drop-shadow(0 0 2px currentColor); opacity: 0.85; }
-  50% { filter: drop-shadow(0 0 10px currentColor); opacity: 1; }
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }
-@keyframes flow {
-  to { stroke-dashoffset: -40; }
+/* Orbit ring spins; each avatar counter-spins so faces stay upright */
+@keyframes orbit {
+  to { transform: rotate(360deg); }
+}
+@keyframes orbit-reverse {
+  to { transform: rotate(-360deg); }
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0.25; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.25); }
 }
 
 /* ---------------------------------------------------------------------- */
 /* Theme variables (swapped via .dark class on <html>)                    */
 /* ---------------------------------------------------------------------- */
 :root {
-  --bg-void: #f6f7fb;
+  /* Canvas behind the floating console frame */
+  --canvas: linear-gradient(150deg, #d9dbf6 0%, #c8cdee 55%, #c2c0ea 100%);
+
+  /* Frosted console frame */
+  --frame-bg: rgba(255, 255, 255, 0.55);
+  --frame-border: rgba(255, 255, 255, 0.75);
+
+  --bg-void: #f4f4fb;
   --bg-surface: #ffffff;
-  --bg-surface-raised: #ffffff;
-  --bg-hover: #eef0f6;
-  --border-subtle: #e3e6ee;
-  --border-strong: #cdd2e0;
-  --text-primary: #0f1420;
-  --text-secondary: #454c5c;
-  --text-muted: #767f92;
+  --bg-surface-raised: #f7f7fd;
+  --bg-hover: #efeff9;
+  --border-subtle: #e7e7f4;
+  --border-strong: #d3d3ea;
+  --text-primary: #232343;
+  --text-secondary: #55567a;
+  --text-muted: #8f90ab;
 
-  --accent-cyan: #0891b2;
-  --accent-cyan-soft: rgba(8, 145, 178, 0.1);
-  --accent-violet: #7c3aed;
-  --accent-violet-soft: rgba(124, 58, 237, 0.1);
+  /* Primary + accent */
+  --accent-violet: #6d5ce6;
+  --accent-violet-strong: #5a48d6;
+  --accent-violet-soft: rgba(109, 92, 230, 0.12);
+  --accent-pink: #f0699e;
+  --accent-pink-soft: rgba(240, 105, 158, 0.13);
+  --accent-green: #3ecf8e;
+  --accent-green-soft: rgba(62, 207, 142, 0.14);
 
-  --shadow-card: 0 1px 2px rgba(15, 20, 32, 0.04), 0 8px 24px -8px rgba(15, 20, 32, 0.08);
-  --shadow-elevated: 0 4px 12px rgba(15, 20, 32, 0.06), 0 16px 40px -12px rgba(15, 20, 32, 0.16);
+  /* Back-compat alias: legacy components reference --accent-cyan */
+  --accent-cyan: var(--accent-violet);
+  --accent-cyan-soft: var(--accent-violet-soft);
+
+  /* Violet gradient used for hero panels + rail */
+  --gradient-primary: linear-gradient(160deg, #8578f0 0%, #6d5ce6 55%, #5f4bd8 100%);
+  --gradient-pink: linear-gradient(150deg, #f585ae 0%, #ef5f97 100%);
+
+  --shadow-card: 0 2px 6px rgba(35, 35, 80, 0.04), 0 10px 30px -12px rgba(35, 35, 80, 0.12);
+  --shadow-elevated: 0 6px 16px rgba(35, 35, 80, 0.07), 0 24px 48px -16px rgba(35, 35, 80, 0.2);
+  --shadow-violet: 0 14px 34px -12px rgba(109, 92, 230, 0.55);
+  --shadow-pink: 0 14px 34px -12px rgba(240, 105, 158, 0.5);
 }
 
 .dark {
-  --bg-void: #0a0d15;
-  --bg-surface: #10141f;
-  --bg-surface-raised: #171c2a;
-  --bg-hover: #1c2233;
-  --border-subtle: #232a3d;
-  --border-strong: #313952;
-  --text-primary: #eef1f8;
-  --text-secondary: #b0b7c7;
-  --text-muted: #6d7690;
+  --canvas: linear-gradient(150deg, #191938 0%, #131230 55%, #100e28 100%);
 
-  --accent-cyan: #22d3ee;
-  --accent-cyan-soft: rgba(34, 211, 238, 0.12);
-  --accent-violet: #a78bfa;
-  --accent-violet-soft: rgba(167, 139, 250, 0.14);
+  --frame-bg: rgba(23, 23, 52, 0.55);
+  --frame-border: rgba(255, 255, 255, 0.08);
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
-  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.3), 0 24px 48px -16px rgba(0, 0, 0, 0.6);
+  --bg-void: #14142e;
+  --bg-surface: #1c1d3e;
+  --bg-surface-raised: #24254c;
+  --bg-hover: #2a2b56;
+  --border-subtle: #2d2e5a;
+  --border-strong: #3c3d70;
+  --text-primary: #ededfa;
+  --text-secondary: #b6b7d4;
+  --text-muted: #7c7da2;
+
+  --accent-violet: #9384f2;
+  --accent-violet-strong: #a99df5;
+  --accent-violet-soft: rgba(147, 132, 242, 0.16);
+  --accent-pink: #f47fab;
+  --accent-pink-soft: rgba(244, 127, 171, 0.16);
+  --accent-green: #46d99a;
+  --accent-green-soft: rgba(70, 217, 154, 0.16);
+
+  --accent-cyan: var(--accent-violet);
+  --accent-cyan-soft: var(--accent-violet-soft);
+
+  --gradient-primary: linear-gradient(160deg, #7a68ec 0%, #6353dd 55%, #5241c9 100%);
+  --gradient-pink: linear-gradient(150deg, #ee6f9f 0%, #e05287 100%);
+
+  --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.25), 0 10px 30px -12px rgba(0, 0, 0, 0.5);
+  --shadow-elevated: 0 6px 16px rgba(0, 0, 0, 0.3), 0 24px 56px -16px rgba(0, 0, 0, 0.6);
+  --shadow-violet: 0 14px 34px -12px rgba(99, 83, 221, 0.6);
+  --shadow-pink: 0 14px 34px -12px rgba(224, 82, 135, 0.5);
 }
 
 * {
@@ -91,12 +139,13 @@ html {
 
 body {
   margin: 0;
-  background: var(--bg-void);
+  background: var(--canvas);
+  background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.25s ease, color 0.25s ease;
+  transition: color 0.25s ease;
 }
 
 h1, h2, h3, h4 {
@@ -105,11 +154,11 @@ h1, h2, h3, h4 {
 }
 
 ::selection {
-  background: var(--accent-cyan-soft);
+  background: var(--accent-violet-soft);
   color: var(--text-primary);
 }
 
-/* Slim, unobtrusive scrollbars that fit the console aesthetic */
+/* Slim scrollbars that fit the soft console aesthetic */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -134,9 +183,16 @@ h1, h2, h3, h4 {
   }
 }
 
-/* Visible keyboard focus, styled to match the console theme */
+/* Visible keyboard focus, styled to match the theme */
 :focus-visible {
-  outline: 2px solid var(--accent-cyan);
+  outline: 2px solid var(--accent-violet);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* Confetti dots - the motif shared by the dashboard frame and About orbit */
+.confetti-dot {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
 }

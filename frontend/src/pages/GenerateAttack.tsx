@@ -133,7 +133,7 @@ export function GenerateAttack() {
 }
 
 const inputClasses =
-  'w-full bg-[var(--bg-void)] border border-[var(--border-strong)] rounded-xl px-3.5 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent-cyan)]';
+  'w-full bg-[var(--bg-surface-raised)] border border-[var(--border-strong)] rounded-2xl px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent-violet)]';
 
 function Field({
   label,
